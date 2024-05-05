@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style>
+        body {
+            min-width: 100vw;
+            min-height: 100vh;
+            /* padding: 50px; */
+            display: grid;
+            gap: 50px;
+            border: 0.2px dashed grey;
+        }
+
+        #svgContainer {
+            z-index: -10;
+            position: absolute;
+            /* background-color: silver; */
+            /* opacity: 0.5; */
+        }
+
+        .card {
+            width: 100px;
+            height: 50px;
+            border: 1px solid black;
+            padding: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- <h1>hello</h1>
+    <a href="https://google.com">google</a> -->
+    <div id="svgContainer">
+        <svg id="svg" width="0" height="0">
+        </svg>
+    </div>
+    <script src="https://unpkg.com/@panzoom/panzoom@4.5.1/dist/panzoom.min.js"></script>
+    <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.11.0/jquery.min.js"></script>
+    <script src="./svgDraw.js"></script>
+    <script>
+        const body = document.querySelector('body')
+        const svg = document.querySelector('#svg')
+        // const body = $('body')
+        // const svg = $('#svg')
+        const pz = Panzoom(body)
+
+        body.addEventListener('wheel', (event) => {
+            if (!event.shiftKey) return
+            pz.zoomWithWheel(event)
+        })
+
+        const data = {
+            a: {
+                generation: 1,
+                name: 'dada',
+                partner: 'dadi',
+                gender: 0,
+                birth: '1/1/1900',
+                death: '1/1/1990',
+                order: 1,
+                parent: '',
+                children: ['b', 'c']
+            },
+            b: {
+                generation: 2,
+                name: 'boroabba',
+                partner: 'khalamoni',
+                gender: 0,
+                birth: '1/1/1950',
+                death: '',
+                order: 1,
+                parent: 'a',
+                children: ['e']
+            },
+            c: {
+                generation: 2,
+                name: 'abbu',
+                partner: 'ammu',
+                gender: 0,
+                birth: '1/1/1960',
+                death: '',
+                order: 2,
+                parent: 'a',
+                children: ['d']
+            },
+            d: {
+                generation: 3,
+                name: 'tanna',
+                partner: '',
+                gender: 0,
+                birth: '1/1/2000',
+                death: '',
+                order: 1,
+                parent: 'c',
+                children: []
+            },
+            e: {
+                generation: 3,
+                name: 'banna',
+                partner: '',
+                gender: 0,
+                birth: '1/1/1980',
+                death: '',
+                order: 1,
+                parent: 'b',
+                children: []
+            }
+        }
+
+
+        const getGenData = () => {
+            let temp = []
+            for (const [id, val] of Object.entries(data)) {
+                const index = val.generation - 1
+                if (temp[index]) {
+                    temp[index].push(id)
+                } else {
+                    temp[index] = [id]
+                }
+            }
+            temp = temp.map(arr =>
+                arr.sort((a, b) => {
+                    const parentA = data[a].parent
+                    const parentB = data[b].parent
+                    return data[parentA].order - data[parentB].order
+                })
+            )
+            return temp
+        }
+        let genData = getGenData()
+        // console.log(genData);
+
+
+        const getOrderCount = () => {
+            let temp = 1
+            for (const [id, val] of Object.entries(data)) {
+                if (val.order > temp) {
+                    temp = val.order
+                }
+            }
+            return temp
+        }
+        let orderCount = getOrderCount()
+
+        const createGrid = () => {
+            body.style.gridTemplateColumns = `repeat(${orderCount}, 100px)`
+            body.style.gridTemplateRows = `repeat(${genData.length}, 50px)`
+            // body.css('grid-template-columns', `repeat(${orderCount}, 100px)`)
+            // body.css('grid-template-rows', `repeat(${genCount}, 50px)`)
+        }
+
+        const addCard = (id, val) => {
+            const genArray = genData[val.generation - 1]
+            const col = genArray.indexOf(id) + 1
+            const string = `
+                <div 
+                    id=${id} 
+                    class="card" 
+                    style="grid-column: ${col}; grid-row: ${val.generation};"
+                >
+                    <h2>${val.name}</h2>
+                </div>
+            `
+            // const div = document.createElement('div')
+            // div.innerHTML = string
+            // div.style.gridColumn = val.order
+            // div.style.gridRow = val.generation
+            // return div
+            body.insertAdjacentHTML('beforeend', string)
+            // body.append(string)
+        }
+
+        const populateGrid = () => {
+            for (const [id, val] of Object.entries(data)) {
+                // const card = createCard(id, val)
+                // body.appendChild(card)
+                addCard(id, val)
+            }
+        }
+
+        const addPath = (id) => {
+            const path = `
+                <path
+                    id="${id}"
+                    d="M0 0"         
+                    stroke="#999" 
+                    fill="none" 
+                    stroke-width="1px";
+                />
+            `
+            svg.insertAdjacentHTML('beforeend', path)
+            // svgNode.append(path)
+        }
+
+
+        const resetLines = () => {
+            $('#svg').attr("height", "0");
+            $('#svg').attr("width", "0");
+        }
+
+        const connectLines = () => {
+            for (const [id, val] of Object.entries(data)) {
+                if (val.children.length > 0) {
+                    val.children.forEach(childId => {
+                        // const child = data[childId]
+                        const pathId = childId + '-path'
+                        addPath(pathId)
+                        connectElements($('#svg'), $('#' + pathId), $('#' + id), $('#' + childId));
+                    })
+                }
+            }
+        }
+
+
+        $(document).ready(() => {
+            resetLines()
+            createGrid()
+            populateGrid()
+            connectLines()
+        })
+
+        $(window).resize(() => {
+            resetLines()
+            connectLines()
+        })
+
+        const getMidPt = (elem) => {
+            const x = elem.offset()
+        }
+
+
+
+
+
+
+    </script>
+</body>
+
+</html>

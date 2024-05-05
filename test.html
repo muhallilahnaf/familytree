@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style>
+        body {
+            min-width: 100vw;
+            min-height: 100vh;
+            margin: 0;
+            padding: 50px;
+            border: 0.2px dashed grey;
+        }
+
+        #treeContainer {
+            width: 100%;
+            height: 100%;
+            display: grid;
+            gap: 50px;
+            position: relative;
+        }
+
+        #svgContainer {
+            position: absolute;
+            z-index: -1;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        .card {
+            border: 1px solid black;
+            padding: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="treeContainer">
+        <div id="svgContainer">
+            <svg id="svg" width="0" height="0"></svg>
+        </div>
+    </div>
+    <script src="https://unpkg.com/@panzoom/panzoom@4.5.1/dist/panzoom.min.js"></script>
+    <script>
+        const body = document.querySelector('body')
+        const pz = Panzoom(body)
+
+        body.addEventListener('wheel', (event) => {
+            if (!event.shiftKey) return
+            pz.zoomWithWheel(event)
+        })
+
+        const svg = document.getElementById('svg')
+        const container = document.getElementById('treeContainer')
+        const nodeWidth = 200
+        const nodeHeight = 100
+        const spacing = 30
+
+        const data = {
+            a: {
+                generation: 1,
+                name: 'dada',
+                partner: 'dadi',
+                gender: 0,
+                birth: '1/1/1900',
+                death: '1/1/1990',
+                order: 1,
+                parent: '',
+                children: ['b', 'c']
+            },
+            b: {
+                generation: 2,
+                name: 'boroabba',
+                partner: 'khalamoni',
+                gender: 0,
+                birth: '1/1/1950',
+                death: '',
+                order: 1,
+                parent: 'a',
+                children: ['e']
+            },
+            c: {
+                generation: 2,
+                name: 'abbu',
+                partner: 'ammu',
+                gender: 0,
+                birth: '1/1/1960',
+                death: '',
+                order: 2,
+                parent: 'a',
+                children: ['d']
+            },
+            d: {
+                generation: 3,
+                name: 'me :)',
+                partner: '',
+                gender: 0,
+                birth: '1/1/2000',
+                death: '',
+                order: 1,
+                parent: 'c',
+                children: []
+            },
+            e: {
+                generation: 3,
+                name: 'bhaiya',
+                partner: '',
+                gender: 0,
+                birth: '1/1/1980',
+                death: '',
+                order: 1,
+                parent: 'b',
+                children: []
+            }
+        }
+
+
+        const getGenData = () => {
+            let temp = []
+            for (const [id, val] of Object.entries(data)) {
+                const index = val.generation - 1
+                if (temp[index]) {
+                    temp[index].push(id)
+                } else {
+                    temp[index] = [id]
+                }
+            }
+            temp = temp.map(arr =>
+                arr.sort((a, b) => {
+                    const parentA = data[a].parent
+                    const parentB = data[b].parent
+                    return data[parentA].order - data[parentB].order
+                })
+            )
+            return temp
+        }
+        let genData = getGenData()
+
+
+        const getOrderCount = () => {
+            let temp = 1
+            for (const [id, val] of Object.entries(data)) {
+                if (val.order > temp) {
+                    temp = val.order
+                }
+            }
+            return temp
+        }
+        let orderCount = getOrderCount()
+
+        const createGrid = () => {
+            container.style.gridTemplateColumns = `repeat(${orderCount}, ${nodeWidth + spacing}px)`
+            container.style.gridTemplateRows = `repeat(${genData.length}, ${nodeHeight + spacing}px)`
+        }
+
+        const addCard = (id, val) => {
+            const genArray = genData[val.generation - 1]
+            const col = genArray.indexOf(id) + 1
+            const string = `
+                <div 
+                    id=${id} 
+                    class="card" 
+                    style="
+                        grid-column: ${col}; 
+                        grid-row: ${val.generation};
+                        width: ${nodeWidth}px;
+                        height: ${nodeHeight}px;
+                    "
+                >
+                    <h2>${val.name}</h2>
+                </div>
+            `
+            container.insertAdjacentHTML('beforeend', string)
+        }
+
+        const populateGrid = () => {
+            for (const [id, val] of Object.entries(data)) {
+                addCard(id, val)
+            }
+        }
+
+        const resetLines = () => {
+            svg.setAttribute('height', 0)
+            svg.setAttribute('width', 0)
+        }
+
+        const drawLines = () => {
+            svg.setAttribute('height', '100vh')
+            svg.setAttribute('width', '100vw')
+
+            for (const [parentId, val] of Object.entries(data)) {
+                if (val.children.length > 0) {
+                    val.children.forEach(childId => {
+                        drawLine(parentId, childId);
+                    })
+                }
+            }
+        }
+
+        const main = (fn) => {
+            if (document.readyState === "complete" || document.readyState === "interactive") {
+                setTimeout(fn, 1)
+            } else {
+                document.addEventListener("DOMContentLoaded", fn)
+            }
+        }
+
+        const load = () => {
+            resetLines()
+            createGrid()
+            populateGrid()
+            drawLines()
+        }
+
+        main(load)
+
+        window.addEventListener('resize', () => {
+            resetLines()
+            drawLines()
+        })
+
+        const getPoint = (id, side) => {
+            const elem = document.getElementById(id)
+            const x = elem.offsetLeft
+            const y = elem.offsetTop
+            const width = elem.offsetWidth
+            const height = elem.offsetHeight
+            if (side == 'top') return [x + 0.5 * width, y]
+            if (side == 'bottom') return [x + 0.5 * width, y + height]
+        }
+
+        const drawLine = (parentId, childId) => {
+            const [x1, y1] = getPoint(parentId, 'bottom')
+            const [x2, y2] = getPoint(childId, 'top')
+            const path = `
+                <path
+                    d="M ${x1} ${y1} L ${x2} ${y2}"         
+                    stroke="#999" 
+                    fill="none" 
+                    stroke-width="1px";
+                />
+            `
+            svg.insertAdjacentHTML('beforeend', path)
+        }
+
+
+
+
+
+
+    </script>
+</body>
+
+</html>
